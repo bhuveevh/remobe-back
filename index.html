@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI-like Background Removal Tool</title>
+<style>
+  body {
+    margin: 0; padding: 30px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+      Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    background: #f0f0f3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    color: #333;
+  }
+
+  h2 {
+    font-weight: 600;
+    margin-bottom: 24px;
+  }
+
+  #uploadBtn {
+    padding: 12px 24px;
+    border-radius: 14px;
+    border: none;
+    background: #e0e0e5;
+    cursor: pointer;
+    box-shadow:
+      5px 5px 10px #babecc,
+      -5px -5px 10px #ffffff;
+    font-weight: 600;
+    font-size: 16px;
+    transition: background 0.3s ease;
+  }
+  #uploadBtn:hover {
+    background: #d6d6db;
+  }
+
+  #canvasContainer {
+    margin-top: 30px;
+    position: relative;
+    border-radius: 18px;
+    box-shadow:
+      10px 10px 20px #babecc,
+      -10px -10px 20px #ffffff;
+    background: white;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+    border-radius: 18px;
+    max-width: 100%;
+  }
+
+  #infoPanel {
+    margin-top: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    max-width: 360px;
+  }
+
+  .colorSwatch {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    box-shadow:
+      inset 3px 3px 7px rgba(255 255 255 / 0.8),
+      inset -3px -3px 7px rgba(0 0 0 / 0.1);
+    border: 1px solid #ddd;
+  }
+
+  .colorLabel {
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 6px;
+    text-align: center;
+    width: 110px;
+  }
+
+  #selectedColorBox {
+    cursor: pointer;
+  }
+
+  #controls {
+    margin-top: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .btn {
+    background: #007aff;
+    border-radius: 14px;
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 14px 26px;
+    cursor: pointer;
+    box-shadow:
+      8px 8px 12px #babecc,
+      -8px -8px 12px #ffffff;
+    font-size: 16px;
+    transition: background 0.3s ease;
+  }
+  .btn:hover:not(:disabled) {
+    background: #005ecb;
+  }
+  .btn:disabled {
+    background: #a0a0a0;
+    cursor: not-allowed;
+  }
+
+  #newBgColor {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    box-shadow:
+      inset 3px 3px 7px rgba(255 255 255 / 0.8),
+      inset -3px -3px 7px rgba(0 0 0 / 0.1);
+  }
+
+  #thresholdRange {
+    width: 180px;
+    cursor: pointer;
+  }
+
+  label {
+    font-size: 14px;
+    font-weight: 600;
+    user-select: none;
+  }
+
+</style>
+</head>
+<body>
+
+<h2>AI-like Background Removal Tool</h2>
+
+<input type="file" id="upload" accept="image/*" style="display:none" />
+<button id="uploadBtn">Upload Image</button>
+
+<div id="canvasContainer">
+  <canvas id="canvas" width="320" height="320"></canvas>
+</div>
+
+<div id="infoPanel">
+  <div>
+    <div id="autoBgColor" class="colorSwatch" title="Auto Detected Background Color"></div>
+    <div class="colorLabel">Auto Background</div>
+  </div>
+  <div>
+    <div id="selectedColorBox" class="colorSwatch" title="Selected Background Color"></div>
+    <div class="colorLabel">Selected Color<br />(Click on image)</div>
+  </div>
+  <div>
+    <label for="thresholdRange">Tolerance:</label><br />
+    <input type="range" id="thresholdRange" min="10" max="150" value="60" />
+  </div>
+  <div>
+    <input type="color" id="newBgColor" value="#f0f0f3" title="New Background Color" />
+    <div class="colorLabel">New Background</div>
+  </div>
+</div>
+
+<div id="controls">
+  <button id="removeBgBtn" class="btn" disabled>Remove Background</button>
+  <button id="applyBgBtn" class="btn" disabled>Apply Background</button>
+  <button id="downloadBtn" class="btn" disabled>Download Image</button>
+</div>
+
+<script>
+  const uploadInput = document.getElementById('upload');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const autoBgColorDiv = document.getElementById('autoBgColor');
+  const selectedColorBox = document.getElementById('selectedColorBox');
+
+  const thresholdRange = document.getElementById('thresholdRange');
+  const newBgColor = document.getElementById('newBgColor');
+
+  const removeBgBtn = document.getElementById('removeBgBtn');
+  const applyBgBtn = document.getElementById('applyBgBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  let originalImageData = null;
+  let currentImageData = null;
+
+  // Colors stored as {r,g,b}
+  let autoBgColor = null;
+  let selectedBgColor = null;
+
+  // Upload button triggers hidden input
+  uploadBtn.addEventListener('click', () => {
+    uploadInput.click();
+  });
+
+  uploadInput.addEventListener('change', () => {
+    const file = uploadInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize canvas max width 320, keep aspect ratio
+        const maxWidth = 320;
+        const scale = Math.min(maxWidth / img.width, 400 / img.height);
+
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        // Detect background color heuristically
+        autoBgColor = detectBackgroundColor(originalImageData);
+        setColorSwatch(autoBgColorDiv, autoBgColor);
+
+        // Set selected color initially same as auto detected
+        selectedBgColor = {...autoBgColor};
+        setColorSwatch(selectedColorBox, selectedBgColor);
+
+        removeBgBtn.disabled = false;
+        applyBgBtn.disabled = true;
+        downloadBtn.disabled = true;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Canvas click to pick color
+  canvas.addEventListener('click', (e) => {
+    if (!originalImageData) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor((e.clientX - rect.left));
+    const y = Math.floor((e.clientY - rect.top));
+    const idx = (y * canvas.width + x) * 4;
+
+    const data = originalImageData.data;
+    if (idx < 0 || idx + 3 >= data.length) return;
+
+    selectedBgColor = {
+      r: data[idx],
+      g: data[idx + 1],
+      b: data[idx + 2],
+    };
+    setColorSwatch(selectedColorBox, selectedBgColor);
+
+    applyBgBtn.disabled = true;
+    downloadBtn.disabled = true;
+  });
+
+  // Remove background on button click
+  removeBgBtn.addEventListener('click', () => {
+    if (!originalImageData || !selectedBgColor) return;
+
+    const tolerance = parseInt(thresholdRange.value);
+
+    currentImageData = removeBackground(originalImageData, selectedBgColor, tolerance);
+    ctx.putImageData(currentImageData, 0, 0);
+
+    applyBgBtn.disabled = false;
+    downloadBtn.disabled = true;
+  });
+
+  // Apply new background color
+  applyBgBtn.addEventListener('click', () => {
+    if (!currentImageData) return;
+
+    const bgColor = hexToRgb(newBgColor.value);
+
+    // Fill transparent pixels with new background color
+    for (let i = 0; i < currentImageData.data.length; i += 4) {
+      if (currentImageData.data[i + 3] === 0) {
+        currentImageData.data[i] = bgColor.r;
+        currentImageData.data[i + 1] = bgColor.g;
+        currentImageData.data[i + 2] = bgColor.b;
+        currentImageData.data[i + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(currentImageData, 0, 0);
+    downloadBtn.disabled = false;
+  });
+
+  // Download result
+  downloadBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'edited-image.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  // Utility: Set color swatch background
+  function setColorSwatch(elem, color) {
+    if (!color) {
+      elem.style.backgroundColor = '#eee';
+      return;
+    }
+    elem.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
+  }
+
+  // Utility: Detect background color heuristically (average color of corners)
+  function detectBackgroundColor(imgData) {
+    const w = imgData.width;
+    const h = imgData.height;
+    const data = imgData.data;
+
+    let r=0, g=0, b=0, count=0;
+
+    // Take pixels from 4 corners 20x20 box
+    const sampleSize = 20;
+
+    function sampleCorner(sx, sy) {
+      for(let y=sy; y < sy + sampleSize; y++) {
+        for(let x=sx; x < sx + sampleSize; x++) {
+          let idx = (y*w + x)*4;
+          r += data[idx];
+          g += data[idx+1];
+          b += data[idx+2];
+          count++;
+        }
+      }
+    }
+
+    sampleCorner(0, 0);
+    sampleCorner(w - sampleSize, 0);
+    sampleCorner(0, h - sampleSize);
+    sampleCorner(w - sampleSize, h - sampleSize);
+
+    return {
+      r: Math.round(r/count),
+      g: Math.round(g/count),
+      b: Math.round(b/count)
+    };
+  }
+
+  // Utility: Remove background pixels near selected color within tolerance
+  function removeBackground(imgData, targetColor, tolerance) {
+    const w = imgData.width;
+    const h = imgData.height;
+    const data = new Uint8ClampedArray(imgData.data);
+
+    for (let i=0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+
+      if (colorDistance({r,g,b}, targetColor) <= tolerance) {
+        // Transparent
+        data[i+3] = 0;
+      }
+    }
+
+    return new ImageData(data, w, h);
+  }
+
+  // Color distance (Euclidean)
+  function colorDistance(c1, c2) {
+    return Math.sqrt(
+      (c1.r - c2.r)**2 +
+      (c1.g - c2.g)**2 +
+      (c1.b - c2.b)**2
+    );
+  }
+
+  // Hex to rgb
+  function hexToRgb(hex) {
+    hex = hex.replace('#', '');
+    if (hex.length === 3) {
+      hex = hex.split('').map(x => x+x).join('');
+    }
+    const bigint = parseInt(hex, 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255,
+    };
+  }
+</script>
+
+</body>
+</html>
