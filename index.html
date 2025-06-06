@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 max-w-md w-full">
+    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 max-w-lg w-full">
         <h1 class="text-2xl font-semibold text-gray-800 mb-6 text-center">VACANCY HAI. BACKGROUND CHANGE</h1>
         <div class="mb-4">
             <label class="block text-gray-600 mb-2">Upload Passport Photo</label>
@@ -22,8 +22,8 @@
             <label class="block text-gray-600 mb-2">Select Background Color</label>
             <input type="color" id="bgColor" value="#ffffff" class="w-full h-10 rounded-lg cursor-pointer">
         </div>
-        <div class="mb-4">
-            <canvas id="previewCanvas" class="w-full rounded-lg shadow"></canvas>
+        <div class="mb-4 flex justify-center">
+            <canvas id="previewCanvas" class="rounded-lg shadow"></canvas>
         </div>
         <button id="applyButton" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50" disabled>Apply Background</button>
         <button id="downloadButton" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition mt-2 hidden">Download Image</button>
