@@ -1,242 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Background Remover</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f0f0f0;
-      color: #333;
-      text-align: center;
-      margin: 0;
-      padding: 2rem;
-    }
-    h1 {
-      margin-bottom: 1rem;
-    }
-    canvas {
-      border-radius: 10px;
-      box-shadow: 0 0 8px #aaa;
-      max-width: 100%;
-      height: auto;
-      margin: 1rem 0;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    .controls label {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 0.9rem;
-    }
-    input[type="file"],
-    input[type="color"],
-    input[type="range"],
-    button {
-      padding: 0.4rem;
-      border-radius: 6px;
-      border: none;
-      box-shadow: 0 0 4px #ccc;
-    }
-    button {
-      cursor: pointer;
-      background: #007aff;
-      color: white;
-    }
-    .color-box {
-      width: 30px;
-      height: 30px;
-      border-radius: 6px;
-      border: 1px solid #aaa;
-      margin-top: 0.4rem;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VACANCY HAI. BACKGROUND CHANGE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-
-<h1>Background Remover Tool</h1>
-
-<div class="controls">
-  <label>
-    Upload Image
-    <input type="file" id="upload" accept="image/*" />
-  </label>
-
-  <label>
-    Selected Color<br>(Click on image)
-    <div id="selectedColor" class="color-box"></div>
-  </label>
-
-  <label>
-    Tolerance
-    <input type="range" id="tolerance" min="0" max="100" value="30" />
-  </label>
-
-  <label>
-    New Background
-    <input type="color" id="newBgColor" value="#ffffff" />
-  </label>
-</div>
-
-<canvas id="canvas"></canvas>
-
-<div class="controls">
-  <button id="removeBgBtn" disabled>Remove Background</button>
-  <button id="applyBgBtn" disabled>Apply Background</button>
-  <button id="downloadBtn" disabled>Download</button>
-</div>
-
-<script>
-  const upload = document.getElementById('upload');
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  const removeBgBtn = document.getElementById('removeBgBtn');
-  const applyBgBtn = document.getElementById('applyBgBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
-  const toleranceRange = document.getElementById('tolerance');
-  const newBgColor = document.getElementById('newBgColor');
-  const selectedColorBox = document.getElementById('selectedColor');
-
-  let originalImageData = null;
-  let currentImageData = null;
-  let selectedBgColor = null;
-
-  upload.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      const img = new Image();
-      img.onload = function() {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        removeBgBtn.disabled = true;
-        applyBgBtn.disabled = true;
-        downloadBtn.disabled = true;
-
-        selectedBgColor = null;
-        setColorSwatch(selectedColorBox, null);
-      };
-      img.src = evt.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  // Pick color on canvas click
-  canvas.addEventListener('click', (e) => {
-    if (!originalImageData) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left));
-    const y = Math.floor((e.clientY - rect.top));
-    const idx = (y * canvas.width + x) * 4;
-
-    const data = originalImageData.data;
-    if (idx < 0 || idx + 3 >= data.length) return;
-
-    selectedBgColor = {
-      r: data[idx],
-      g: data[idx + 1],
-      b: data[idx + 2]
-    };
-    setColorSwatch(selectedColorBox, selectedBgColor);
-    removeBgBtn.disabled = false;
-  });
-
-  removeBgBtn.addEventListener('click', () => {
-    if (!originalImageData || !selectedBgColor) return;
-
-    const tolerance = parseInt(toleranceRange.value);
-    currentImageData = removeBackground(originalImageData, selectedBgColor, tolerance);
-    ctx.putImageData(currentImageData, 0, 0);
-
-    applyBgBtn.disabled = false;
-    downloadBtn.disabled = true;
-  });
-
-  applyBgBtn.addEventListener('click', () => {
-    if (!currentImageData) return;
-
-    const bgColor = hexToRgb(newBgColor.value);
-    for (let i = 0; i < currentImageData.data.length; i += 4) {
-      if (currentImageData.data[i + 3] === 0) {
-        currentImageData.data[i] = bgColor.r;
-        currentImageData.data[i + 1] = bgColor.g;
-        currentImageData.data[i + 2] = bgColor.b;
-        currentImageData.data[i + 3] = 255;
-      }
-    }
-
-    ctx.putImageData(currentImageData, 0, 0);
-    downloadBtn.disabled = false;
-  });
-
-  downloadBtn.addEventListener('click', () => {
-    const link = document.createElement('a');
-    link.download = 'edited-image.png';
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  });
-
-  function setColorSwatch(elem, color) {
-    if (!color) {
-      elem.style.backgroundColor = '#eee';
-      return;
-    }
-    elem.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
-  }
-
-  function removeBackground(imgData, targetColor, tolerance) {
-    const w = imgData.width;
-    const h = imgData.height;
-    const data = new Uint8ClampedArray(imgData.data);
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-
-      if (colorDistance({ r, g, b }, targetColor) <= tolerance) {
-        data[i + 3] = 0;
-      }
-    }
-
-    return new ImageData(data, w, h);
-  }
-
-  function colorDistance(c1, c2) {
-    return Math.sqrt(
-      (c1.r - c2.r) ** 2 +
-      (c1.g - c2.g) ** 2 +
-      (c1.b - c2.b) ** 2
-    );
-  }
-
-  function hexToRgb(hex) {
-    hex = hex.replace('#', '');
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
-    }
-    const bigint = parseInt(hex, 16);
-    return {
-      r: (bigint >> 16) & 255,
-      g: (bigint >> 8) & 255,
-      b: bigint & 255
-    };
-  }
-</script>
-
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white bg-opacity-90 backdrop-blur-lg rounded-2xl shadow-2xl p-8 max-w-md w-full">
+        <h1 class="text-2xl font-semibold text-gray-800 mb-6 text-center">VACANCY HAI. BACKGROUND CHANGE</h1>
+        <div class="mb-4">
+            <label class="block text-gray-600 mb-2">Upload Passport Photo</label>
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 transition">
+                <p class="text-gray-500">Drag & Drop or Click to Upload</p>
+                <input type="file" id="imageInput" accept="image/*" class="hidden">
+            </div>
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-600 mb-2">Select Background Color</label>
+            <input type="color" id="bgColor" value="#ffffff" class="w-full h-10 rounded-lg cursor-pointer">
+        </div>
+        <div class="mb-4">
+            <canvas id="previewCanvas" class="w-full rounded-lg shadow"></canvas>
+        </div>
+        <button id="applyButton" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50" disabled>Apply Background</button>
+        <button id="downloadButton" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition mt-2 hidden">Download Image</button>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
