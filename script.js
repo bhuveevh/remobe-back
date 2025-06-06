@@ -7,6 +7,7 @@ let imageInput = document.getElementById('imageInput');
 let dropZone = document.getElementById('dropZone');
 
 function setup() {
+    // Create canvas with placeholder size, will resize later
     canvas = createCanvas(400, 400);
     canvas.parent('previewCanvas');
     background(255);
@@ -17,6 +18,10 @@ function setup() {
 function handleFile(file) {
     if (file.type.startsWith('image/')) {
         img = loadImage(URL.createObjectURL(file), () => {
+            // Resize canvas to match image dimensions
+            resizeCanvas(img.width, img.height);
+            // Display the image immediately
+            image(img, 0, 0);
             applyButton.disabled = false;
         });
     }
@@ -43,7 +48,6 @@ imageInput.addEventListener('change', (e) => {
 applyButton.addEventListener('click', () => {
     if (img) {
         let bgColor = hexToRgb(bgColorInput.value);
-        loadPixels();
         img.loadPixels();
         for (let y = 0; y < img.height; y++) {
             for (let x = 0; x < img.width; x++) {
@@ -52,7 +56,7 @@ applyButton.addEventListener('click', () => {
                 let g = img.pixels[index + 1];
                 let b = img.pixels[index + 2];
                 let a = img.pixels[index + 3];
-                // Simple thresholding to detect background (assuming light background)
+                // Simple thresholding to detect light background
                 if (r > 200 && g > 200 && b > 200 && a > 0) {
                     img.pixels[index] = bgColor.r;
                     img.pixels[index + 1] = bgColor.g;
@@ -61,12 +65,14 @@ applyButton.addEventListener('click', () => {
             }
         }
         img.updatePixels();
-        image(img, 0, 0, width, height);
+        // Redraw the modified image
+        image(img, 0, 0);
         downloadButton.classList.remove('hidden');
     }
 });
 
 downloadButton.addEventListener('click', () => {
+    // Save the canvas with original dimensions
     saveCanvas(canvas, 'passport_photo', 'jpg');
 });
 
