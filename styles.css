@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    background: linear-gradient(135deg, #ece9e6, #ffffff);
+}
+
+#dropZone:hover {
+    background-color: #f1f5f9;
+}
+
+#previewCanvas {
+    background-color: #f8f8f8;
+}
